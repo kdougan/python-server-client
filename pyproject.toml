@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "server-client"
+version = "0.1.0"
+description = ""
+authors = ["Kyle Dougan <kdougan@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pyglm = "^2.7.1"
+pygame-ce = "^2.4.0"
+small-ass-cache = "^0.9.2"
+esper = "^3.2"
+dinobytes = "^0.1.0"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
