@@ -6,13 +6,7 @@ from dinobytes import dbyte
 
 
 @dataclass
-class ClientState:
-    connected: bool = False
-    dt: float = 0.0
-
-
-@dataclass
-class ServerState:
+class State:
     dt: float = 0.0
 
 

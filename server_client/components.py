@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Callable
 
 from dinobytes import dbyte
-from glm import vec2
 
 
 @dbyte
@@ -12,44 +11,66 @@ class Ent:
 
 
 @dbyte
-class Position(vec2):
+@dataclass
+class Size:
+    width: float
+    height: float
+
+
+@dbyte
+@dataclass
+class Position:
+    x: float
+    y: float
+
+
+@dbyte
+@dataclass
+class Velocity:
+    x: float
+    y: float
+
+
+@dbyte
+class Immobile:
     pass
 
 
 @dbyte
-class Velocity(vec2):
-    pass
-
-
 @dataclass
 class Sprite:
     image_path: str
 
 
 @dbyte
-class Collider(vec2):
-    pass
+@dataclass
+class Collider:
+    x: float = 0.0
+    y: float = 0.0
+    width: float = 0.0
+    height: float = 0.0
 
 
 @dbyte
 @dataclass
-class Health(int):
-    pass
+class Health:
+    value: int
 
 
 @dbyte
 @dataclass
-class Score(int):
-    pass
+class Score:
+    value: int
 
 
+@dbyte
 @dataclass
 class Shape:
     shape: str
     color: str
-    size: vec2
 
 
+@dbyte
 @dataclass
 class Timer:
     interval: float
@@ -58,13 +79,9 @@ class Timer:
     time: float = 0.0
 
 
+@dbyte
 @dataclass
-class Blackboard:
-    dt: float
-
-
-@dataclass
-class Ephemeral:
+class PendingAck:
     timeout: float = 1.0
 
 

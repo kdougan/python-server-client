@@ -1,42 +1,60 @@
 # CLIENT
 from __future__ import annotations
+from time import perf_counter, sleep
 
 import pygame
 from phecs.phecs import World
 
 from server_client.mod import GameClient
-from server_client.processors import (
-    client_network_process,
-    input_process,
-    render_process,
+from server_client.systems import (
+    client_network_system,
+    collision_system,
+    input_system,
+    movement_system,
+    render_system,
 )
-from server_client.types import ClientState
+from server_client.types import ClientConnectRequest, State
 
 
 # ==============================
 # GAME
-class Game:
-    def __init__(self) -> None:
-        self.clock: pygame.time.Clock = pygame.time.Clock()
-        self.client: GameClient = GameClient()
+def main():
+    client: GameClient = GameClient()
 
-        self.world = World()
-        self.state = ClientState()
-        self.screen = pygame.display.set_mode((800, 600))
-        pygame.display.set_caption("Client")
+    world = World()
+    state = State()
+    screen = pygame.display.set_mode((800, 600))
+    pygame.display.set_caption("Client")
 
-    def start(self) -> None:
-        # Main game loop
-        self.client.start()
-        while self.client.running:
-            client_network_process(state=self.state, client=self.client)
-            input_process(client=self.client)
-            render_process(screen=self.screen, world=self.world)
-            self.state.dt = self.clock.tick(60) * 0.001
+    tick_rate: int = 60
+    time_per_tick: float = 1.0 / tick_rate
+    accumulator: float = 0.0
+
+    last_time: float = perf_counter()
+
+    client.start()
+    client.send_message(bytes(ClientConnectRequest()))
+    while client.running:
+        current_time: float = perf_counter()
+        frame_time: float = current_time - last_time
+        last_time = current_time
+
+        accumulator += frame_time
+
+        input_system(client)
+
+        while accumulator >= time_per_tick:
+            client_network_system(client, world)
+            movement_system(world, state)
+            collision_system(world)
+
+            state.dt = time_per_tick
+            accumulator -= time_per_tick
+
+        render_system(screen, world)
 
 
 # ==============================
 # START
 if __name__ == "__main__":
-    pygame.init()
-    Game().start()
+    main()
