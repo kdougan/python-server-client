@@ -10,8 +10,8 @@ python = "^3.11"
 pyglm = "^2.7.1"
 pygame-ce = "^2.4.0"
 small-ass-cache = "^0.9.2"
-esper = "^3.2"
-dinobytes = "^0.1.0"
+phecs = {git = "https://github.com/wegfawefgawefg/phecs.git", rev = "master"}
+dinobytes = "^0.4.0"
 
 
 [tool.poetry.group.dev.dependencies]

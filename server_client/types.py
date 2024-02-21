@@ -1,27 +1,51 @@
-from dataclasses import dataclass
-from dinobytes import networkmessage
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from dinobytes import dbyte
 
 
 @dataclass
-class Blackboard:
+class ClientState:
+    connected: bool = False
     dt: float = 0.0
 
 
-@networkmessage
-class ClientConnect:
-    address: tuple[str, int]
+@dataclass
+class ServerState:
+    dt: float = 0.0
 
 
-@networkmessage
+@dbyte
+@dataclass
+class GameState:
+    components: dict[int, dict[str, str]] = field(default_factory=dict)
+
+
+@dbyte
+class ClientConnectRequest:
+    pass
+
+
+@dbyte
+@dataclass
+class ClientConnectResponse:
+    id: str
+
+
+@dbyte
+@dataclass
 class ClientDisconnect:
     pass
 
 
-@networkmessage
+@dbyte
+@dataclass
 class ClientChatMessage:
     message: str
 
 
-@networkmessage
+@dbyte
+@dataclass
 class CreateEntity:
     type: str

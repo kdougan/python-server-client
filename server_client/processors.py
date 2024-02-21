@@ -1,101 +1,87 @@
-from typing import Any
-
-import esper
 import pygame
-from dinobytes import unpack_msg
-from esper import Processor
+from dinobytes import unpackd
+from phecs import World
 
 from server_client.components import Position, Timer, Velocity
-from server_client.types import Blackboard, ClientChatMessage, ClientConnect
+from server_client.mod import GameClient, GameServer
+from server_client.types import (
+    ClientChatMessage,
+    ClientConnectRequest,
+    ClientConnectResponse,
+    GameState,
+)
 
 
-class MovementProcessor(Processor):
-    def process(self):
-        for _, (vel, pos) in esper.get_components(Velocity, Position):
-            pos.x += vel.x
-            pos.y += vel.y
+def movement_process(world: World):
+    for _, pos, vel in world.find(Position, Velocity):
+        pos.x += vel.x
+        pos.y += vel.y
 
 
-class TimerProcessor(Processor):
-    def __init__(self, blackboard: Blackboard):
-        self.blackboard = blackboard
-
-    def process(self):
-        for _, timer in esper.get_component(Timer):
-            timer.time += self.blackboard.dt
-            if timer.time > timer.interval:
-                timer.callback()
-                timer.time = 0
-                if not timer.repeat:
-                    esper.remove_component(_, Timer)
+def timer_process(world: World, dt: float):
+    for ent, timer in world.find(Timer):
+        timer.time += dt
+        if timer.time > timer.interval:
+            timer.callback()
+            timer.time = 0
+            if not timer.repeat:
+                world.remove(ent, Timer)
 
 
-class ServerNetworkProcessor(Processor):
-    def __init__(self, server):
-        self.server = server
-        self.message_counter = 0
+def server_network_process(world: World, server: GameServer):
+    def handle_client_connect(server: GameServer, client_id: str):
+        server.send_message_to_client(
+            client_id, bytes(ClientConnectResponse(client_id))
+        )
 
-    def process(self):
-        for msg in self.server.get_messages():
-            message = unpack_msg(msg)
-            print(f"Server received message: {message}")
-            match message:
-                case ClientConnect(address):  # type: ignore
-                    print(f"Client connected from {address}")
-                case ClientChatMessage(message):  # type: ignore
-                    print(f"Client sent message: {message}")
-                case _:
-                    print(f"Unknown message: {message}")
+    def send_game_state(server: GameServer, client_id: str, world: World):
+        state = GameState(components=[c for _, c in world.iter_every()])
+        print(f"Sending game state: {state}")
+        server.send_message_to_client(client_id, bytes(state))  # type: ignore
 
-
-class ClientNetworkProcessor(Processor):
-    def __init__(self, client):
-        self.client = client
-        self.message_counter = 0
-        self.connected = False
-
-    def send_message(self, message: Any):
-        self.client.send_message(bytes(message))
-
-    def process(self):
-        if not self.connected and self.client.connected:
-            self.connected = True
-            address = self.client.client_socket.getpeername()
-            self.send_message(ClientConnect(address))
-            return
-
-        for msg in self.client.get_messages():
-            message = unpack_msg(msg)
-            print(f"Client received message: {message}")
+    for msg in server.get_messages():
+        client_id, message = msg.client_id, unpackd(msg.data)
+        print(f"Server received message: {message}")
+        match message:
+            case ClientConnectRequest():  # type: ignore
+                print(f"Client {client_id} connected")
+                handle_client_connect(server, client_id)
+                send_game_state(server, client_id, world)
+            case ClientChatMessage(message):  # type: ignore
+                print(f"Client sent message: {message}")
+            case _:
+                print(f"Unknown message: {message}")
 
 
-class InputProcessor(Processor):
-    def __init__(self, client):
-        self.client = client
+def client_network_process(state: GameState, client: GameClient):
+    if not state.connected and client.connected:
+        state.connected = True
+        client.send_message(bytes(ClientConnectRequest()))
 
-    def send_message(self, message: Any):
-        self.client.send_message(bytes(message))
-
-    def process(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    pygame.event.post(pygame.event.Event(pygame.QUIT))
-                elif event.key == pygame.K_SPACE:
-                    print("Space pressed")
-                    self.send_message(ClientChatMessage("space pressed"))
+    for msg in client.get_messages():
+        message = unpackd(msg)
+        match message:
+            case GameState(components):  # type: ignore
+                for ent_comps in components:
+                    for component in ent_comps:
+                        print(f"Received component: {component}")
 
 
-class RenderProcessor(Processor):
-    def __init__(self, width, height):
-        self.screen = pygame.display.set_mode((width, height))
-        pygame.display.set_caption("Game Client")
+def input_process(client: GameClient):
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+            elif event.key == pygame.K_SPACE:
+                print("Space pressed")
+                client.send_message(bytes(ClientChatMessage("space pressed")))
 
-    def process(self):
-        self.screen.fill((0, 0, 0))
-        for _, (pos, _) in esper.get_components(Position, Velocity):
-            pygame.draw.circle(self.screen, (255, 255, 255), (pos.x, pos.y), 4)
-        pygame.display.flip()
+
+def render_process(screen: pygame.Surface, world: World):
+    screen.fill((0, 0, 0))
+    for _, pos in world.find(Position):
+        pygame.draw.circle(screen, (255, 255, 255), (pos.x, pos.y), 4)
+    pygame.display.flip()

@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import socket
+import struct
 import threading
-from typing import List
-
+from dataclasses import dataclass
+from typing import Dict, List
+from uuid import uuid4
 
 # ==============================
 # SERVER
+
+
+@dataclass
+class ServerMessage:
+    client_id: str
+    data: bytes
+
+
 class GameServer:
     def __init__(
         self,
@@ -15,69 +25,90 @@ class GameServer:
     ) -> None:
         self.host = host
         self.port = port
-        self.clients: List[socket.socket] = []
+        self.clients: Dict[str, socket.socket] = {}
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen()
         self.running: bool = False
-        self.message_queue: List[bytes] = []
+        self.message_queue: List[ServerMessage] = []
         print(f"Server is listening on {self.host}:{self.port}")
 
     def broadcast(self, message: bytes, source_client: socket.socket) -> None:
-        for client in self.clients:
+        for _, client in self.clients.items():
             if client != source_client:
                 try:
-                    client.sendall(message)
+                    self.send_message(client, message)
                 except Exception as e:
-                    self.clients.remove(client)
-                    print("A client was removed due to a failed message send.")
-                    print(f"Error: {e}")
+                    self.remove_client(client, e)
 
-    def handle_client(
-        self, client_socket: socket.socket, client_address: tuple[str, int]
-    ) -> None:
-        print(f"Client {client_address} connected.")
+    def send_message(self, client: socket.socket, message: bytes) -> None:
+        try:
+            message_length = len(message)
+            client.sendall(struct.pack(">I", message_length))
+            client.sendall(message)
+        except Exception as e:
+            self.remove_client(client, e)
+
+    def send_message_to_client(self, client_id: str, message: bytes) -> None:
+        if client := self.clients.get(client_id):
+            self.send_message(client, message)
+
+    def remove_client(self, client_id, e=None):
+        self.clients.pop(client_id)
+        if e:
+            print("A client was removed due to a failed message send.")
+            print(f"Error: {e}")
+
+    def handle_client(self, client_socket: socket.socket, client_id: str) -> None:
+        print(f"Client {client_id} connected.")
         while True:
             try:
-                if message := client_socket.recv(1024):
-                    self.message_queue.append(message)
-                else:
-                    break
+                message_length = struct.unpack(">I", client_socket.recv(4))[0]
+                message = client_socket.recv(message_length)
+                self.message_queue.append(ServerMessage(client_id, message))
             except ConnectionResetError:
-                print(f"Client {client_address} disconnected unexpectedly.")
+                print(f"Client {client_id} disconnected unexpectedly.")
                 break
             except Exception as e:
-                print(f"An error occurred with client {client_address}: {e}")
+                print(f"An error occurred with client {client_id}: {e}")
                 break
         client_socket.close()
-        self.clients.remove(client_socket)
-        print(f"Client {client_address} disconnected.")
+        self.clients.pop(client_id)
+        print(f"Client {client_id} disconnected.")
 
     def start(self) -> None:
         print("Server started, waiting for connections...")
         self.running = True
         while self.running:
             try:
-                client_socket, client_address = self.server_socket.accept()
-                self.clients.append(client_socket)
+                client_socket, _ = self.server_socket.accept()
+                client_id = uuid4().hex
+                self.clients[client_id] = client_socket
                 thread = threading.Thread(
                     target=self.handle_client,
-                    args=(client_socket, client_address),
+                    args=(client_socket, client_id),
                     daemon=True,
                 )
                 thread.start()
             except KeyboardInterrupt as e:
                 self.running = False
-                for client in self.clients:
+                for client in self.clients.values():
                     client.close()
                 self.server_socket.close()
                 print(f"Server was stopped: {e}")
                 break
 
-    def get_messages(self) -> List[bytes]:
+    def get_messages(self) -> List[ServerMessage]:
         messages = self.message_queue
         self.message_queue = []
         return messages
+
+    def __del__(self) -> None:
+        self.running = False
+        for client in self.clients.values():
+            client.close()
+        self.server_socket.close()
+        print("Server connection closed")
 
 
 # ==============================
@@ -113,8 +144,9 @@ class GameClient:
     def receive_messages(self) -> None:
         while self.running:
             try:
-                if message := self.client_socket.recv(1024):
-                    self.message_queue.append(message)
+                message_length = struct.unpack(">I", self.client_socket.recv(4))[0]
+                message = self.client_socket.recv(message_length)
+                self.message_queue.append(message)
             except Exception as e:
                 print("Lost connection to the server")
                 print(f"Error: {e}")
@@ -123,6 +155,8 @@ class GameClient:
 
     def send_message(self, message: bytes) -> None:
         try:
+            message_length = len(message)
+            self.client_socket.sendall(struct.pack(">I", message_length))
             self.client_socket.sendall(message)
         except Exception as e:
             print("Failed to send message")
@@ -137,3 +171,7 @@ class GameClient:
         messages = self.message_queue
         self.message_queue = []
         return messages
+
+    def __del__(self) -> None:
+        self.close_connection()
+        print("Client connection closed")
