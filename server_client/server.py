@@ -66,9 +66,9 @@ def main():
 def spawn_initial_entities(world: World):
     world.spawn(
         Ent(1),
-        Position(20.0, 20.0),
-        Velocity(25.0, 25.0),
-        Collider(10.0, 10.0),
+        Position(150.0, 125.0),
+        Velocity(-100.0, -100.0),
+        Collider(150.0, 125.0, 10.0, 10.0),
         Size(10.0, 10.0),
         Shape("square", "#aaffaa"),
     )
@@ -77,28 +77,28 @@ def spawn_initial_entities(world: World):
     # left wall
     world.spawn(
         Position(0.0, 0.0),
-        Collider(10.0, 600.0),
+        Collider(0.0, 0.0, 10.0, 600.0),
         Size(10.0, 600.0),
         Shape("square", "#009900"),
     )
     # right wall
     world.spawn(
         Position(790.0, 0.0),
-        Collider(10.0, 600.0),
+        Collider(790.0, 0.0, 10.0, 600.0),
         Size(10.0, 600.0),
         Shape("square", "#009900"),
     )
     # top wall
     world.spawn(
         Position(0.0, 0.0),
-        Collider(800.0, 10.0),
+        Collider(0.0, 0.0, 800.0, 10.0),
         Size(800.0, 10.0),
         Shape("square", "#009900"),
     )
     # bottom wall
     world.spawn(
         Position(0.0, 590.0),
-        Collider(800.0, 10.0),
+        Collider(0.0, 590.0, 800.0, 10.0),
         Size(800.0, 10.0),
         Shape("square", "#009900"),
     )

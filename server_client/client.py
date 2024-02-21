@@ -1,9 +1,9 @@
 # CLIENT
 from __future__ import annotations
-from time import perf_counter, sleep
+from time import perf_counter
 
 import pygame
-from phecs.phecs import World
+from phecs import World
 
 from server_client.mod import GameClient
 from server_client.systems import (

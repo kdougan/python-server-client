@@ -19,6 +19,14 @@ def movement_system(world: World, state: GameState):
 
 
 def collision_system(world: World):
+    def colliders_collide(colA, colB):
+        return (
+            colA.x < colB.x + colB.width
+            and colA.x + colA.width > colB.x
+            and colA.y < colB.y + colB.height
+            and colA.y + colA.height > colB.y
+        )
+
     for entA, posA, velA, colA in world.find(Position, Velocity, Collider):
         colA.x = posA.x
         colA.y = posA.y
@@ -27,22 +35,30 @@ def collision_system(world: World):
                 continue
             colB.x = posB.x
             colB.y = posB.y
-            if (
-                colA.x < colB.x + colB.width
-                and colA.x + colA.width > colB.x
-                and colA.y < colB.y + colB.height
-                and colA.y + colA.height > colB.y
-            ):
-                # bounce
-                # determine which side the collision happened
-                dx = (colA.x + colA.width / 2) - (colB.x + colB.width / 2)
-                dy = (colA.y + colA.height / 2) - (colB.y + colB.height / 2)
-                if abs(dx) > abs(dy):
-                    colA.x = colB.x + colB.width if dx > 0 else colB.x - colA.width
+            if colliders_collide(colA, colB):
+                centerA_x = colA.x + colA.width / 2
+                centerA_y = colA.y + colA.height / 2
+                centerB_x = colB.x + colB.width / 2
+                centerB_y = colB.y + colB.height / 2
+
+                diff_x = centerA_x - centerB_x
+                diff_y = centerA_y - centerB_y
+
+                overlap_x = colA.width / 2 + colB.width / 2 - abs(diff_x)
+                overlap_y = colA.height / 2 + colB.height / 2 - abs(diff_y)
+
+                if overlap_x < overlap_y:
                     velA.x *= -1
+                    if diff_x > 0:
+                        posA.x += overlap_x
+                    else:
+                        posA.x -= overlap_x
                 else:
-                    colA.y = colB.y + colB.height if dy > 0 else colB.y - colA.height
                     velA.y *= -1
+                    if diff_y > 0:
+                        posA.y += overlap_y
+                    else:
+                        posA.y -= overlap_y
 
 
 def timer_system(world: World, dt: float):
