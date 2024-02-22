@@ -2,13 +2,27 @@ import pygame
 from dinobytes import unpackd
 from phecs import World
 
-from server_client.components import Collider, Position, Shape, Size, Timer, Velocity
+from server_client.components import (
+    Collider,
+    Ent,
+    Position,
+    Shape,
+    Size,
+    Timer,
+    Velocity,
+)
 from server_client.mod import GameClient, GameServer
 from server_client.types import (
     ClientChatMessage,
     ClientConnectRequest,
     ClientConnectResponse,
+    ClientDisconnect,
+    ClientMoveRequest,
+    DespawnEntity,
     GameState,
+    SpawnEntity,
+    State,
+    UpdateEntity,
 )
 
 
@@ -30,7 +44,7 @@ def collision_system(world: World):
     for entA, posA, velA, colA in world.find(Position, Velocity, Collider):
         colA.x = posA.x
         colA.y = posA.y
-        for entB, posB, colB in world.find(Position, Collider, without=Velocity):
+        for entB, posB, colB in world.find(Position, Collider):
             if entA == entB:
                 continue
             colB.x = posB.x
@@ -71,11 +85,25 @@ def timer_system(world: World, dt: float):
                 world.remove(ent, Timer)
 
 
-def server_network_system(world: World, server: GameServer):
-    def handle_client_connect(server: GameServer, client_id: str):
-        server.send_message_to_client(
-            client_id, bytes(ClientConnectResponse(client_id))
-        )
+def server_network_system(world: World, server: GameServer, state: State):
+    def handle_client_connect(server: GameServer, client_id: str, state: State):
+        if len(state.players) < 2:
+            player_num = len(state.players)
+            # create the paddle
+            components = [
+                Ent(client_id),
+                Position(x=20 if player_num == 0 else 760, y=300),
+                Size(width=20, height=100),
+                Velocity(x=0, y=0),
+                Collider(x=20 if player_num == 0 else 760, y=300, width=20, height=100),
+                Shape(shape="square", color="white"),
+            ]
+            state.players[client_id] = world.spawn(*components)
+            server.send_message_to_client(
+                client_id, bytes(ClientConnectResponse(client_id))
+            )
+            server.broadcast_to_all_except(client_id, bytes(SpawnEntity(components)))
+            send_game_state(server, client_id, world)
 
     def send_game_state(server: GameServer, client_id: str, world: World):
         state = GameState(components=[c for _, c in world.iter_every()])
@@ -84,22 +112,60 @@ def server_network_system(world: World, server: GameServer):
 
     for msg in server.get_messages():
         client_id, message = msg.client_id, unpackd(msg.data)
-        print(f"Server received message: {message}")
         match message:
             case ClientConnectRequest():  # type: ignore
                 print(f"Client {client_id} connected")
-                handle_client_connect(server, client_id)
-                send_game_state(server, client_id, world)
+                handle_client_connect(server, client_id, state)
+
+            case ClientMoveRequest(x, y):  # type: ignore
+                if client_id in state.players:
+                    id_ = state.players[client_id]
+                    for _, pos, ent in world.find_on(id_, Position, Ent):
+                        pos.x += x
+                        pos.y += y
+                        server.broadcast_to_all_except(
+                            client_id, bytes(UpdateEntity(ent, [pos]))
+                        )
+
             case ClientChatMessage(message):  # type: ignore
                 print(f"Client sent message: {message}")
+
+            case ClientDisconnect():  # type: ignore
+                print(f"Client {client_id} disconnected")
+                world.despawn(state.players[client_id])
+                server.broadcast_to_all_except(
+                    client_id, bytes(DespawnEntity(state.players[client_id]))
+                )
+                del state.players[client_id]
+
             case _:
                 print(f"Unknown message: {message}")
 
 
-def client_network_system(client: GameClient, world: World):
+def client_network_system(client: GameClient, world: World, state: State):
     for msg in client.get_messages():
         message = unpackd(msg)
         match message:
+            case ClientConnectResponse(id):  # type: ignore
+                print(f"Connected to server with id: {id}")
+                state.client_id = id
+
+            case SpawnEntity(components):  # type: ignore
+                print("Spawning entity")
+                world.spawn(*components)
+
+            case UpdateEntity(ent, components):  # type: ignore
+                for e, ent_ in world.find(Ent):
+                    if ent_ == ent:
+                        for component in components:
+                            world.insert(e, component)
+
+            case DespawnEntity(ent):  # type: ignore
+                print(f"Despawning entity: {ent}")
+                for _, ent_ in world.find(Ent):
+                    if ent_ == ent:
+                        world.despawn(ent_)
+
             case GameState(components):  # type: ignore
                 world.clear()
                 for ent_comps in components:
@@ -107,8 +173,11 @@ def client_network_system(client: GameClient, world: World):
                     for component in ent_comps:
                         world.insert(ent, component)
 
+            case _:
+                print(f"Unknown message: {message}")
 
-def input_system(client: GameClient):
+
+def input_system(client: GameClient, world: World, state: State):
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -119,6 +188,17 @@ def input_system(client: GameClient):
             elif event.key == pygame.K_SPACE:
                 print("Space pressed")
                 client.send_message(bytes(ClientChatMessage("space pressed")))
+
+    if pygame.key.get_pressed()[pygame.K_UP]:
+        for _, pos, ent in world.find(Position, Ent):
+            if ent.value == state.client_id:
+                pos.y -= 10 * state.dt
+        client.send_message(bytes(ClientMoveRequest(0, -10)))
+    elif pygame.key.get_pressed()[pygame.K_DOWN]:
+        for _, pos, ent in world.find(Position, Ent):
+            if ent.value == state.client_id:
+                pos.y += 10 * state.dt
+        client.send_message(bytes(ClientMoveRequest(0, 10)))
 
 
 def render_system(screen: pygame.Surface, world: World):

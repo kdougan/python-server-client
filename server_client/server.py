@@ -47,7 +47,7 @@ def main():
             accumulator += frame_time
 
             while accumulator >= time_per_tick:
-                server_network_system(world, server)
+                server_network_system(world, server, state)
                 movement_system(world, state)
                 collision_system(world)
 

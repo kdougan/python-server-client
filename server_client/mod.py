@@ -53,6 +53,10 @@ class GameServer:
         if client := self.clients.get(client_id):
             self.send_message(client, message)
 
+    def broadcast_to_all_except(self, client_id: str, message: bytes) -> None:
+        if client := self.clients.get(client_id):
+            self.broadcast(message, client)
+
     def remove_client(self, client_id, e=None):
         self.clients.pop(client_id)
         if e:

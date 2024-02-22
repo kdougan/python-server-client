@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from dinobytes import dbyte
+from phecs import Entity
 
 
 @dataclass
 class State:
     dt: float = 0.0
+    client_id: str = ""
+    players: dict[str, Entity] = field(default_factory=dict)
 
 
 @dbyte
@@ -43,3 +47,29 @@ class ClientChatMessage:
 @dataclass
 class CreateEntity:
     type: str
+
+
+@dbyte
+@dataclass
+class ClientMoveRequest:
+    x: int
+    y: int
+
+
+@dbyte
+@dataclass
+class SpawnEntity:
+    components: list[Any] = field(default_factory=list)
+
+
+@dbyte
+@dataclass
+class UpdateEntity:
+    ent_id: str
+    components: list[Any] = field(default_factory=list)
+
+
+@dbyte
+@dataclass
+class DespawnEntity:
+    ent_id: str
