@@ -7,11 +7,11 @@ from phecs import World
 
 from server_client.mod import GameClient
 from server_client.systems import (
-    client_network_system,
-    collision_system,
-    input_system,
-    movement_system,
-    render_system,
+    client_network_sys,
+    collision_sys,
+    input_sys,
+    movement_sys,
+    render_sys,
 )
 from server_client.types import ClientConnectRequest, State
 
@@ -41,17 +41,17 @@ def main():
 
         accumulator += frame_time
 
-        input_system(client, world, state)
+        input_sys(client, world, state)
 
         while accumulator >= time_per_tick:
-            client_network_system(client, world, state)
-            movement_system(world, state)
-            collision_system(world)
+            client_network_sys(client, world, state)
+            movement_sys(world, state)
+            collision_sys(world)
 
             state.dt = time_per_tick
             accumulator -= time_per_tick
 
-        render_system(screen, world)
+        render_sys(screen, world)
 
 
 # ==============================

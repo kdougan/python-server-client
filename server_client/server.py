@@ -10,9 +10,9 @@ from phecs import World
 from server_client.components import Collider, Ent, Position, Shape, Size, Velocity
 from server_client.mod import GameServer
 from server_client.systems import (
-    collision_system,
-    movement_system,
-    server_network_system,
+    collision_sys,
+    movement_sys,
+    server_network_sys,
 )
 from server_client.types import State
 
@@ -47,9 +47,9 @@ def main():
             accumulator += frame_time
 
             while accumulator >= time_per_tick:
-                server_network_system(world, server, state)
-                movement_system(world, state)
-                collision_system(world)
+                server_network_sys(world, server, state)
+                movement_sys(world, state)
+                collision_sys(world)
 
                 state.dt = time_per_tick
                 accumulator -= time_per_tick
