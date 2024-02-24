@@ -7,14 +7,22 @@ from time import perf_counter, sleep
 
 from phecs import World
 
-from server_client.components import Collider, Ent, Position, Shape, Size, Velocity
+from server_client.components import (
+    Collider,
+    Ent,
+    Paddle,
+    Position,
+    Shape,
+    Size,
+    Velocity,
+)
 from server_client.mod import GameServer
 from server_client.systems import (
     collision_sys,
     movement_sys,
     server_network_sys,
 )
-from server_client.types import State
+from server_client.types import RequestStateForSync, State
 
 
 # ==============================
@@ -36,6 +44,9 @@ def main():
 
     last_time: float = perf_counter()
 
+    sync_interval = 1.0 / 4.0
+    sync_accumulator = 0.0
+
     try:
         while not server.running:
             sleep(0.1)
@@ -45,6 +56,7 @@ def main():
             last_time = current_time
 
             accumulator += frame_time
+            sync_accumulator += frame_time
 
             while accumulator >= time_per_tick:
                 server_network_sys(world, server, state)
@@ -53,6 +65,10 @@ def main():
 
                 state.dt = time_per_tick
                 accumulator -= time_per_tick
+
+            if sync_accumulator >= sync_interval:
+                server.broadcast_to_all(bytes(RequestStateForSync()))
+                sync_accumulator = 0.0
 
             sleep_time: float = time_per_tick - (perf_counter() - current_time)
             if sleep_time > 0:
@@ -63,11 +79,14 @@ def main():
         server_thread.join()
 
 
+DEFAULT_VEL = 400.0
+
+
 def spawn_initial_entities(world: World):
     world.spawn(
         Ent(1),
         Position(150.0, 125.0),
-        Velocity(-100.0, -100.0),
+        Velocity(-DEFAULT_VEL, -DEFAULT_VEL),
         Collider(150.0, 125.0, 10.0, 10.0),
         Size(10.0, 10.0),
         Shape("square", "#aaffaa"),

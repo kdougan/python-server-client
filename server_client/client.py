@@ -19,11 +19,16 @@ from server_client.types import ClientConnectRequest, State
 # ==============================
 # GAME
 def main():
+    pygame.init()
+
+    # client: GameClient = GameClient(host="72.234.70.144", port=65432)
     client: GameClient = GameClient()
 
     world = World()
     state = State()
     screen = pygame.display.set_mode((800, 600))
+    font = pygame.font.SysFont(None, 36)
+
     pygame.display.set_caption("Client")
 
     tick_rate: int = 60
@@ -51,7 +56,7 @@ def main():
             state.dt = time_per_tick
             accumulator -= time_per_tick
 
-        render_sys(screen, world)
+        render_sys(screen, world, font)
 
 
 # ==============================

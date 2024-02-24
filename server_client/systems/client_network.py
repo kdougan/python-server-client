@@ -2,14 +2,17 @@ from dinobytes import unpackd
 from phecs import World
 
 from server_client.components import Ent
+from server_client.lib import find
 from server_client.mod import GameClient
 from server_client.types import (
     ClientConnectResponse,
     DespawnEntity,
     GameState,
+    RespondStateForSync,
     SpawnEntity,
     State,
     UpdateEntity,
+    RequestStateForSync,
 )
 
 
@@ -26,6 +29,7 @@ def client_network_sys(client: GameClient, world: World, state: State):
                 world.spawn(*components)
 
             case UpdateEntity(ent, components):  # type: ignore
+                print(f"Updating entity: {ent}")
                 for e, ent_ in world.find(Ent):
                     if ent_ == ent:
                         for component in components:
@@ -33,9 +37,9 @@ def client_network_sys(client: GameClient, world: World, state: State):
 
             case DespawnEntity(ent):  # type: ignore
                 print(f"Despawning entity: {ent}")
-                for _, ent_ in world.find(Ent):
+                for e, ent_ in world.find(Ent):
                     if ent_ == ent:
-                        world.despawn(ent_)
+                        world.despawn(e)
 
             case GameState(components):  # type: ignore
                 world.clear()
@@ -43,6 +47,15 @@ def client_network_sys(client: GameClient, world: World, state: State):
                     ent = world.spawn()
                     for component in ent_comps:
                         world.insert(ent, component)
+
+            case RequestStateForSync():  # type: ignore
+                print("Requesting state for sync")
+                entities = []
+                for _, components in world.iter_every():
+                    if ent := find(Ent, components):
+                        entities.append([ent.value, components])
+                message = bytes(RespondStateForSync(entities))
+                client.send_message(message)
 
             case _:
                 print(f"Unknown message: {message}")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, List
 
 from dinobytes import dbyte
 from phecs import Entity
@@ -71,5 +71,23 @@ class UpdateEntity:
 
 @dbyte
 @dataclass
+class RemoveComponents:
+    ent_id: str
+    components: list[Any] = field(default_factory=list)
+
+
+@dbyte
+@dataclass
 class DespawnEntity:
     ent_id: str
+
+
+@dbyte
+class RequestStateForSync:
+    pass
+
+
+@dbyte
+@dataclass
+class RespondStateForSync:
+    world: List[str, List[Any]] = field(default_factory=list)

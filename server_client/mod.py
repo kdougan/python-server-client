@@ -33,6 +33,13 @@ class GameServer:
         self.message_queue: List[ServerMessage] = []
         print(f"Server is listening on {self.host}:{self.port}")
 
+    def broadcast_to_all(self, message: bytes) -> None:
+        for _, client in self.clients.items():
+            try:
+                self.send_message(client, message)
+            except Exception as e:
+                self.remove_client(client, e)
+
     def broadcast(self, message: bytes, source_client: socket.socket) -> None:
         for _, client in self.clients.items():
             if client != source_client:
@@ -117,6 +124,8 @@ class GameServer:
 
 # ==============================
 # CLIENT
+
+
 class GameClient:
     def __init__(self, host: str = "127.0.0.1", port: int = 65432) -> None:
         self.host = host

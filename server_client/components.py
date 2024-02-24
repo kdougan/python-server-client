@@ -10,6 +10,23 @@ class Ent:
     value: int = 0
 
 
+# @dbyte
+# @dataclass
+# class Key:
+#     program_uuid: int
+#     world_ent_id: int
+
+# foreign_ids = {
+#     id: int
+# }
+
+
+# @dbyte
+# @dataclass
+# class Keys:
+#     keys: list[Key]
+
+
 @dbyte
 @dataclass
 class Size:
@@ -89,3 +106,8 @@ class PendingAck:
 @dataclass
 class Message:
     message: str
+
+
+@dbyte
+class Paddle:
+    pass
