@@ -3,10 +3,10 @@ from phecs import World
 
 from server_client.components import Ent, Position
 from server_client.mod import GameClient
-from server_client.types import ClientChatMessage, ClientMoveRequest, State
+from server_client.types import ClientChatMessage, ClientMoveRequest, ClientState
 
 
-def input_sys(client: GameClient, world: World, state: State):
+def input_sys(client: GameClient, world: World, state: ClientState):
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()

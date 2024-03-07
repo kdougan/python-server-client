@@ -7,14 +7,15 @@ from time import perf_counter, sleep
 
 from phecs import World
 
-from server_client.components import Collider, Ent, Position, Shape, Size, Velocity
+from server_client.components import Collider, Position, Shape, Size, Velocity
 from server_client.mod import GameServer
 from server_client.systems import (
     collision_sys,
     movement_sys,
     server_network_sys,
 )
-from server_client.types import State
+from server_client.systems.game_time import game_time_sys
+from server_client.types import ServerState
 
 
 # ==============================
@@ -24,7 +25,7 @@ def main():
     server_thread: Thread = Thread(target=server.start)
 
     world: World = World()
-    state: State = State()
+    state: ServerState = ServerState()
 
     spawn_initial_entities(world)
 
@@ -47,6 +48,7 @@ def main():
             accumulator += frame_time
 
             while accumulator >= time_per_tick:
+                game_time_sys(state)
                 server_network_sys(world, server, state)
                 movement_sys(world, state)
                 collision_sys(world)
@@ -65,7 +67,6 @@ def main():
 
 def spawn_initial_entities(world: World):
     world.spawn(
-        Ent(1),
         Position(150.0, 125.0),
         Velocity(-100.0, -100.0),
         Collider(150.0, 125.0, 10.0, 10.0),

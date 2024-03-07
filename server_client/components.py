@@ -82,10 +82,16 @@ class Timer:
 @dbyte
 @dataclass
 class PendingAck:
-    timeout: float = 1.0
+    ttl: float = 1.0
 
 
 @dbyte
 @dataclass
 class Message:
     message: str
+
+
+@dbyte
+@dataclass
+class Player:
+    value: str

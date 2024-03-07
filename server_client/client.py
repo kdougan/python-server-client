@@ -13,18 +13,22 @@ from server_client.systems import (
     movement_sys,
     render_sys,
 )
-from server_client.types import ClientConnectRequest, State
+from server_client.systems.game_time import game_time_sys
+from server_client.types import ClientConnectRequest, ClientState
 
 
 # ==============================
 # GAME
 def main():
+    pygame.init()
+
     client: GameClient = GameClient()
 
-    world = World()
-    state = State()
-    screen = pygame.display.set_mode((800, 600))
+    world: World = World()
+    state: ClientState = ClientState()
+    screen: pygame.Surface = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("Client")
+    font: pygame.font.Font = pygame.font.Font(None, 36)
 
     tick_rate: int = 60
     time_per_tick: float = 1.0 / tick_rate
@@ -44,6 +48,7 @@ def main():
         input_sys(client, world, state)
 
         while accumulator >= time_per_tick:
+            game_time_sys(state)
             client_network_sys(client, world, state)
             movement_sys(world, state)
             collision_sys(world)
@@ -51,7 +56,7 @@ def main():
             state.dt = time_per_tick
             accumulator -= time_per_tick
 
-        render_sys(screen, world)
+        render_sys(screen, font, world, state)
 
 
 # ==============================

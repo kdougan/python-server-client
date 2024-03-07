@@ -33,15 +33,18 @@ class GameServer:
         self.message_queue: List[ServerMessage] = []
         print(f"Server is listening on {self.host}:{self.port}")
 
-    def broadcast(self, message: bytes, source_client: socket.socket) -> None:
+    def _broadcast(
+        self, message: bytes, without: list[socket.socket] | None = None
+    ) -> None:
+        without = without or []
         for _, client in self.clients.items():
-            if client != source_client:
+            if client not in without:
                 try:
-                    self.send_message(client, message)
+                    self._send_message(client, message)
                 except Exception as e:
                     self.remove_client(client, e)
 
-    def send_message(self, client: socket.socket, message: bytes) -> None:
+    def _send_message(self, client: socket.socket, message: bytes) -> None:
         try:
             message_length = len(message)
             client.sendall(struct.pack(">I", message_length))
@@ -49,13 +52,14 @@ class GameServer:
         except Exception as e:
             self.remove_client(client, e)
 
-    def send_message_to_client(self, client_id: str, message: bytes) -> None:
+    def send_message(self, client_id: str, message: bytes) -> None:
         if client := self.clients.get(client_id):
-            self.send_message(client, message)
+            self._send_message(client, message)
 
-    def broadcast_to_all_except(self, client_id: str, message: bytes) -> None:
-        if client := self.clients.get(client_id):
-            self.broadcast(message, client)
+    def broadcast(self, message: bytes, without: list[str] | None = None) -> None:
+        without = without or []
+        without_sockets = [self.clients[client_id] for client_id in without]
+        self._broadcast(message, without=without_sockets)
 
     def remove_client(self, client_id, e=None):
         self.clients.pop(client_id)
@@ -142,10 +146,10 @@ class GameClient:
     def start(self) -> None:
         self.connect()
         self.running = True
-        thread = threading.Thread(target=self.receive_messages, daemon=True)
+        thread = threading.Thread(target=self.handle_messages, daemon=True)
         thread.start()
 
-    def receive_messages(self) -> None:
+    def handle_messages(self) -> None:
         while self.running:
             try:
                 message_length = struct.unpack(">I", self.client_socket.recv(4))[0]
